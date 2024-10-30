@@ -1,0 +1,26 @@
+{
+    "id": "0CE068F2",
+    "path": "~/Documents/Data/Elections/election-2024-maps/scripts/live-data.R",
+    "project_path": "scripts/live-data.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1730325143372.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "67,31",
+        "scrollLine": "48"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1730325229,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1730325229983,
+    "read_only": false,
+    "read_only_alternatives": []
+}

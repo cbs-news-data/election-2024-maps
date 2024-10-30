@@ -1,0 +1,26 @@
+library(tidyverse)
+library(httr)
+library(jsonlite)
+library(tidyjson)
+library(stringr)
+
+#CA_data <- rjson::fromJSON(file="https://api-election.cbsnews.com/api/public/counties/2020/G/CA/P")
+
+json_url <- paste0("https://api-election.cbsnews.com/api/public/counties/2020/G/CA/P")
+
+# GET the JSON data
+response <- GET(json_url)
+json_data <- content(response, "text")
+CA_data <- fromJSON(json_data, simplifyVector = FALSE)
+
+
+county_data <- CA_data$race$counties
+
+county_data_unnest <- county_data %>% 
+   spread_all() #%>% 
+#   select(name, fips, precinctsOf, precinctsIn, pctPrecIn, pctExpVote, totalVote, ts) %>% 
+#   enter_object(candidates) %>% 
+#   gather_array %>% 
+#   spread_all() %>% 
+#   select(name, fips, precinctsOf, precinctsIn, pctPrecIn, pctExpVote, totalVote, ts, vote, pct, id) %>% 
+#   as_data_frame.tbl_json()
