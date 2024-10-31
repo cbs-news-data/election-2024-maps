@@ -1,26 +1,26 @@
 {
-    "id": "78C89B5D",
-    "path": "~/Documents/Data/Elections/election-2024-maps/scripts/live-data.R",
-    "project_path": "scripts/live-data.R",
+    "id": "EB1C144E",
+    "path": "~/Documents/Data/Elections/election-2024-maps/scripts/TEST_2024-live-data_TEST.R",
+    "project_path": "scripts/TEST_2024-live-data_TEST.R",
     "type": "r_source",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1730325828468.0,
+    "created": 1730388442779.0,
     "source_on_save": false,
     "relative_order": 4,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "86,0",
-        "scrollLine": "57"
+        "cursorPosition": "0,0",
+        "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1730331545,
+    "lastKnownWriteTime": 1730402541,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1730331545809,
+    "last_content_update": 1730402541773,
     "read_only": false,
     "read_only_alternatives": []
 }

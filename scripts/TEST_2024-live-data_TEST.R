@@ -14,7 +14,7 @@ all_counties <- data.frame()
 # Loop through each state abbreviation
 for (state in state_abbreviations) {
   # Construct the URL with the current state abbreviation
-  json_url <- paste0("https://api-election.cbsnews.com/api/public/counties2/2020/G/", state, "/P")
+  json_url <- paste0("https://api-election.cbsnews.com/api/public/counties2/2024/G/", state, "/P")
   
   # GET the JSON data
   response <- GET(json_url)
@@ -31,7 +31,7 @@ for (state in state_abbreviations) {
   
   county_data_unnest <- county_data %>%
     spread_all() %>% #converts json into rows/columns
-    select(name, fips, precinctsOf, precinctsIn, pctPrecIn, pctExpVote, totalVote, ts) %>% #select only columns we want/need
+    select(name, fips, pctExpVote, totalVote, ts) %>% #select only columns we want/need
     enter_object(candidates) %>% #go into column that's still nested
     gather_array %>% #adds array numbers & duplicates rows to correspond to OG rows
     spread_all() %>% #converts candidate vote numbers into rows/columns
@@ -57,32 +57,39 @@ for (state in state_abbreviations) {
     mutate(across(everything(), .fns = ~replace_na(.,0))) %>% 
     mutate(state = state)
   
+  #THIS IS FOR TESTING!!! GENERATE RANDOM NUMBERS FOR pctExpVote, vote_Harris, vote_Trump, pct_Harris, pct_Trump
+  county_candidate_data_clean$pctExpVote <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
+  county_candidate_data_clean$vote_Harris <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
+  county_candidate_data_clean$vote_Trump <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
+  county_candidate_data_clean$pct_Harris <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
+  county_candidate_data_clean$pct_Trump <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
+  
   #bind to all_counties
   all_counties <- bind_rows(all_counties, county_candidate_data_clean)
   
 }
 
-all_counties_clean <- all_counties %>% 
-  mutate(vote_Other = totalVote-(`vote_Joe Biden`+`vote_Donald Trump`),
-         pct_Other = 100-(`pct_Joe Biden`+`pct_Donald Trump`)) %>% #get "other" votes that aren't main candidates
-  select(fips, name, state, pctExpVote, totalVote, `vote_Joe Biden`, `vote_Donald Trump`, vote_Other, `pct_Joe Biden`, `pct_Donald Trump`, pct_Other, ts) %>%  #select only the columns we want
-  mutate(ts_datetime = as.POSIXct(ts,format="%Y-%m-%dT%H:%M:%SZ")) %>% #change datetime to datetime
-  mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p")) %>% #format it pretty
+all_counties_clean_TEST <- all_counties %>% 
+  mutate(vote_Other = totalVote-(`vote_Harris`+`vote_Trump`),
+         pct_Other = 100-(`pct_Harris`+`pct_Trump`)) %>% #get "other" votes that aren't main candidates
+  select(fips, name, state, pctExpVote, totalVote, `vote_Harris`, `vote_Trump`, vote_Other, `pct_Harris`, `pct_Trump`, pct_Other, ts) %>%  #select only the columns we want
+  mutate(ts_datetime = as.POSIXct(ts,format="%Y-%m-%dT%H:%M:%SZ", tz="GMT")) %>% #change datetime to datetime
+  mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p", tz="America/New_York")) %>% #format it pretty with ET tz
   #mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p %Z", tz = "America/New_York"))
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
   mutate(fips = str_pad(as.character(fips), 5, pad = "0")) %>% #add leading 0s
   mutate(fips = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
                           TRUE ~ fips)) %>% 
-  mutate(leader = case_when(`pct_Joe Biden` > `pct_Donald Trump` ~ "Biden",
-                            `pct_Joe Biden` < `pct_Donald Trump` ~ "Trump",
+  mutate(leader = case_when(`pct_Harris` > `pct_Trump` ~ "Harris",
+                            `pct_Harris` < `pct_Trump` ~ "Trump",
                             TRUE ~ "NA")) %>% 
-  mutate(at_least_50pct_in = case_when(pctExpVote >= 50 ~ "50pctExpVoteIn",
-                                       TRUE ~ "lessThan50pctIn")) %>% 
-  mutate(leader_margin = `pct_Joe Biden` - `pct_Donald Trump`) %>% 
-  mutate(leader_margin_safe = case_when(at_least_50pct_in == "50pctExpVoteIn" ~  leader_margin,
+  mutate(at_least_20pct_in = case_when(pctExpVote >= 20 ~ "20pctExpVoteIn",
+                                       TRUE ~ "lessThan20pctIn")) %>% 
+  mutate(leader_margin = `pct_Harris` - `pct_Trump`) %>% 
+  mutate(leader_margin_safe = case_when(at_least_20pct_in == "20pctExpVoteIn" ~  leader_margin,
                                    TRUE ~ NA)) %>% 
   mutate(leader_margin_abs = abs(leader_margin_safe))
   
-write.csv(all_counties_clean, "output/all_counties_clean.csv", row.names = FALSE)
+write.csv(all_counties_clean_TEST, "output/TEST_TEST_all_counties_clean_2024_TEST_TEST.csv", row.names = FALSE)
 
 
