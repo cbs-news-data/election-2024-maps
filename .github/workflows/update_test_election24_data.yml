@@ -1,6 +1,6 @@
 on:
   schedule:
-    # - cron: '20 0/2 * * *'
+     - cron: '1 1 1 1 *' #At 01:01 on day-of-month 1 in January
   workflow_dispatch:
 
 name: Update test election 2024 data
