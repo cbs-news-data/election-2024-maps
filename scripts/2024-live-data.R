@@ -68,8 +68,8 @@ all_counties_clean <- all_counties %>%
   select(fips, name, state, pctExpVote, totalVote, `vote_Harris`, `vote_Trump`, vote_Other, `pct_Harris`, `pct_Trump`, pct_Other, ts) %>%  #select only the columns we want
   mutate(ts_datetime = as.POSIXct(ts,format="%Y-%m-%dT%H:%M:%SZ", tz="GMT")) %>% #change datetime to datetime
   mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p %Z", tz="America/New_York")) %>% #format it pretty with ET tz
-  #mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p %Z", tz = "America/New_York"))
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
+  mutate(ts_pretty = paste0(ts_pretty, " ET")) %>% #add ET time zone at the end
   mutate(fips = str_pad(as.character(fips), 5, pad = "0")) %>% #add leading 0s
   mutate(fips = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
                           TRUE ~ fips)) %>% 
