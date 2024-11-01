@@ -66,8 +66,8 @@ all_counties_clean <- all_counties %>%
   mutate(vote_Other = totalVote-(`vote_Joe Biden`+`vote_Donald Trump`),
          pct_Other = 100-(`pct_Joe Biden`+`pct_Donald Trump`)) %>% #get "other" votes that aren't main candidates
   select(fips, name, state, pctExpVote, totalVote, `vote_Joe Biden`, `vote_Donald Trump`, vote_Other, `pct_Joe Biden`, `pct_Donald Trump`, pct_Other, ts) %>%  #select only the columns we want
-  mutate(ts_datetime = as.POSIXct(ts,format="%Y-%m-%dT%H:%M:%SZ")) %>% #change datetime to datetime
-  mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p")) %>% #format it pretty
+  mutate(ts_datetime = as.POSIXct(ts,format="%Y-%m-%dT%H:%M:%SZ", tz="GMT")) %>% #change datetime to datetime
+  mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p %Z", tz="America/New_York")) %>% #format it pretty with ET tz
   #mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p %Z", tz = "America/New_York"))
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
   mutate(fips = str_pad(as.character(fips), 5, pad = "0")) %>% #add leading 0s
