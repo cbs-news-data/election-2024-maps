@@ -1,6 +1,7 @@
 on:
   schedule:
-    - cron: '*/5 * * * *' #every 5th minute
+    #- cron: '*/5 * * * *' #every 5th minute
+    - cron: '1 1 1 1 *' #At 01:01 on day-of-month 1 in January
   workflow_dispatch:
 
 name: Update live election 2024 data
@@ -15,7 +16,7 @@ jobs:
       - name: Set up pandoc
         uses: r-lib/actions/setup-pandoc@v2
       - name: Packages cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ env.R_LIBS_USER }}
           key: ${{ runner.os }}-r-${{ hashFiles('**/DESCRIPTION') }}
