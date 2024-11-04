@@ -4,6 +4,12 @@ library(jsonlite)
 library(tidyjson)
 library(stringr)
 
+county_names_fips <- read.csv("data/county_names.csv") %>% 
+  mutate(GEOID = str_pad(as.character(GEOID), 5, pad = "0")) #add leading 0s
+
+#get alaska changes 
+ak_names <- read.csv("data/ak_names.csv") %>% 
+  mutate(fips = str_pad(as.character(fips), 5, pad = "0")) #add leading 0s
 
 # Get a vector of state abbreviations
 state_abbreviations <- c(state.abb)
@@ -14,7 +20,7 @@ all_counties <- data.frame()
 # Loop through each state abbreviation
 for (state in state_abbreviations) {
   # Construct the URL with the current state abbreviation
-  json_url <- paste0("https://api-election.cbsnews.com/api/public/counties2/2020/G/", state, "/P")
+  json_url <- paste0("https://api-election.cbsnews.com/api/public/counties/2020/G/", state, "/P")
   
   # GET the JSON data
   response <- GET(json_url)
@@ -31,47 +37,46 @@ for (state in state_abbreviations) {
   
   county_data_unnest <- county_data %>%
     spread_all() %>% #converts json into rows/columns
-    select(name, fips, precinctsOf, precinctsIn, pctPrecIn, pctExpVote, totalVote, ts) %>% #select only columns we want/need
+    select(name, fips, totalExpVote, totalVote, timeStamp) %>% #select only columns we want/need
+    mutate(state = state) %>% 
     enter_object(candidates) %>% #go into column that's still nested
     gather_array %>% #adds array numbers & duplicates rows to correspond to OG rows
     spread_all() %>% #converts candidate vote numbers into rows/columns
-    select(name, fips, pctExpVote, totalVote, ts, vote, pct, id) %>% #select only columns we want/need
+    select(name, fips, state, totalExpVote, totalVote, timeStamp, fullName, vote) %>% #select only columns we want/need
     as_data_frame.tbl_json() #drops the json column at the end that we don't need anymore
   
-  remove(county_data) #remove nested county data
-  
-  candidate_data_unnest <- candidate_data %>%
-    spread_all() %>% #converts json into rows/columns
-    select(raceCandidateId, color, party, lastName, fullName, id) %>% #select only columns we want/need
-    as_data_frame.tbl_json() #drops the json column at the end that we don't need anymore
-  
-  remove(candidate_data) #remove nested candidate data
-  
-  county_candidate_data <- merge(county_data_unnest, candidate_data_unnest, by="id", all.x = TRUE) %>%
-    select(name, fips, pctExpVote, totalVote, ts, vote, pct, fullName)
-  
-  remove(county_data_unnest, candidate_data_unnest) #remove not merged data
-  
-  county_candidate_data_clean <- county_candidate_data %>%
-    pivot_wider(names_from = fullName, values_from = c(vote, pct)) %>%
+  county_candidate_data_clean <- county_data_unnest %>%
+    pivot_wider(names_from = fullName, values_from = c(vote)) %>%
     mutate(across(everything(), .fns = ~replace_na(.,0))) %>% 
-    mutate(state = state)
+    mutate(ts_datetime = as.POSIXct(timeStamp,format="%Y-%m-%dT%H:%M:%S", tz="GMT")) #change datetime to datetime
+  
+  county_candidate_data_clean_grouped <- county_candidate_data_clean %>% 
+    group_by(state, fips) %>% 
+    summarise(totalExpVote = sum(totalExpVote),
+              totalVote = sum(totalVote),
+              timeStamp = max(ts_datetime),
+              `vote_Joe Biden` = sum(`Joe Biden`),
+              `vote_Donald Trump` = sum(`Donald Trump`))
+  
   
   #bind to all_counties
-  all_counties <- bind_rows(all_counties, county_candidate_data_clean)
+  all_counties <- bind_rows(all_counties, county_candidate_data_clean_grouped)
   
 }
 
-all_counties_clean <- all_counties %>% 
-  mutate(vote_Other = totalVote-(`vote_Joe Biden`+`vote_Donald Trump`),
-         pct_Other = 100-(`pct_Joe Biden`+`pct_Donald Trump`)) %>% #get "other" votes that aren't main candidates
-  select(fips, name, state, pctExpVote, totalVote, `vote_Joe Biden`, `vote_Donald Trump`, vote_Other, `pct_Joe Biden`, `pct_Donald Trump`, pct_Other, ts) %>%  #select only the columns we want
-  mutate(ts_datetime = as.POSIXct(ts,format="%Y-%m-%dT%H:%M:%SZ", tz="GMT")) %>% #change datetime to datetime
-  mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p %Z", tz="America/New_York")) %>% #format it pretty with ET tz
-  #mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p %Z", tz = "America/New_York"))
+all_counties_fix_padding <- all_counties %>% 
+  mutate(fips = str_pad(as.character(fips), 5, pad = "0")) #add leading 0s
+
+all_counties_names <- merge(all_counties_fix_padding, county_names_fips, by.x="fips", by.y="GEOID", all.x=TRUE) #merge
+
+all_counties_clean <- all_counties_names %>% 
+  mutate(vote_Other = totalVote-(`vote_Joe Biden`+`vote_Donald Trump`)) %>% 
+  mutate(pctExpVote = (totalVote/totalExpVote)*100) %>% 
+  mutate(`pct_Joe Biden` = (`vote_Joe Biden`/totalVote)*100) %>%
+  mutate(`pct_Donald Trump` = (`vote_Donald Trump`/totalVote)*100) %>%
+  mutate(ts_pretty = format(as.POSIXct(timeStamp), format = "%B %d, %Y %I:%M %p %Z", tz="America/New_York")) %>% #format it pretty with ET tz
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
-  mutate(fips = str_pad(as.character(fips), 5, pad = "0")) %>% #add leading 0s
-  mutate(fips = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
+  mutate(fips_new = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
                           TRUE ~ fips)) %>% 
   mutate(leader = case_when(`pct_Joe Biden` > `pct_Donald Trump` ~ "Biden",
                             `pct_Joe Biden` < `pct_Donald Trump` ~ "Trump",
@@ -82,6 +87,10 @@ all_counties_clean <- all_counties %>%
   mutate(leader_margin_safe = case_when(at_least_20pct_in == "20pctExpVoteIn" ~  leader_margin,
                                    TRUE ~ NA)) %>% 
   mutate(leader_margin_abs = abs(leader_margin_safe))
+
+all_counties_clean <- merge(all_counties_clean, ak_names, by="fips", all.x=TRUE) %>% 
+  mutate(NAME = case_when(state == "AK" ~ ak_district,
+                          TRUE ~ NAME))
   
 write.csv(all_counties_clean, "output/all_counties_clean_2020.csv", row.names = FALSE)
 

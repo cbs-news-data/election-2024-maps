@@ -96,4 +96,7 @@ all_counties_clean_TEST <- all_counties %>%
   
 write.csv(all_counties_clean_TEST, "output/TEST_TEST_all_counties_clean_2024_TEST_TEST.csv", row.names = FALSE)
 
+all_counties_clean_TEST_FIPSCOUNTIES <- all_counties_clean_TEST %>% 
+  group_by(fips, state) %>% 
+  summarise(count = n())
 
