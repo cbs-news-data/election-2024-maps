@@ -25,8 +25,8 @@ for (state in state_abbreviations) {
   # GET the JSON data
   response <- GET(json_url)
   json_data <- content(response, "text")
- # data <- fromJSON(json_data, simplifyVector = FALSE)
-  data <- fromJSON(json_data)
+  data <- jsonlite::fromJSON(json_data, simplifyVector = FALSE)
+  #data <- fromJSON(json_data)
   
   print(state)
   print(json_url)
