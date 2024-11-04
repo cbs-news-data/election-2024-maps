@@ -77,6 +77,8 @@ all_counties_names <- merge(all_counties_fix_padding, county_names_fips, by.x="f
 all_counties_clean <- all_counties_names %>% 
   mutate(vote_Other = totalVote-(`vote_Harris`+`vote_Trump`)) %>% 
   mutate(pctExpVote = (totalVote/totalExpVote)*100) %>% 
+  mutate(pctExpVote = case_when(is.na(pctExpVote) == TRUE ~ 0,
+                                TRUE ~ pctExpVote)) %>% 
   mutate(`pct_Harris` = (`vote_Harris`/totalVote)*100) %>%
   mutate(`pct_Trump` = (`vote_Trump`/totalVote)*100) %>%
   mutate(ts_pretty = format(as.POSIXct(timeStamp), format = "%B %d, %Y %I:%M %p", tz="America/New_York")) %>% #format it pretty with ET tz
