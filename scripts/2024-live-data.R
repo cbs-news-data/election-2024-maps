@@ -70,6 +70,8 @@ all_counties_clean <- all_counties %>%
   mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p", tz="America/New_York")) %>% #format it pretty with ET tz
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
   mutate(ts_pretty = paste0(ts_pretty, " ET")) %>% #add ET time zone at the end
+  mutate(ts_pretty = case_when(ts_pretty == "January 1, 001 12:03 AM ET" ~ "No voting data yet", #if timestamp still placeholder, change it to "no voting data yet"
+                               TRUE ~ ts_pretty)) %>% 
   mutate(fips = str_pad(as.character(fips), 5, pad = "0")) %>% #add leading 0s
   mutate(fips = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
                           TRUE ~ fips)) %>% 
