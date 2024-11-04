@@ -11,7 +11,7 @@ json_url <- paste0("https://api-election.cbsnews.com/api/public/counties/2020/G/
 # GET the JSON data
 response <- GET(json_url)
 json_data <- content(response, "text")
-CT_data <- fromJSON(json_data, simplifyVector = FALSE)
+CT_data <- fromJSON(json_data)
 
 
 county_data <- CT_data$race$counties
@@ -37,6 +37,6 @@ county_candidate_data_clean_grouped <- county_candidate_data_clean %>%
   group_by(fips) %>% 
   summarise(totalExpVote = sum(totalExpVote),
             totalVote = sum(totalVote),
-            timeStamp = max(timeStamp),
+            timeStamp = max(ts_datetime),
             votes_Biden = sum(`Joe Biden`),
             votes_Trump = sum(`Donald Trump`))

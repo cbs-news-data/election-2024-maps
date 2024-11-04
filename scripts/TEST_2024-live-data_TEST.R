@@ -4,6 +4,12 @@ library(jsonlite)
 library(tidyjson)
 library(stringr)
 
+county_names_fips <- read.csv("data/county_names.csv") %>% 
+  mutate(GEOID = str_pad(as.character(GEOID), 5, pad = "0")) #add leading 0s
+
+#get alaska changes 
+ak_names <- read.csv("data/ak_names.csv") %>% 
+  mutate(fips = str_pad(as.character(fips), 5, pad = "0")) #add leading 0s
 
 # Get a vector of state abbreviations
 state_abbreviations <- c(state.abb)
@@ -14,12 +20,13 @@ all_counties <- data.frame()
 # Loop through each state abbreviation
 for (state in state_abbreviations) {
   # Construct the URL with the current state abbreviation
-  json_url <- paste0("https://api-election.cbsnews.com/api/public/counties2/2024/G/", state, "/P")
+  json_url <- paste0("https://api-election.cbsnews.com/api/public/counties/2024/G/", state, "/P")
   
   # GET the JSON data
   response <- GET(json_url)
   json_data <- content(response, "text")
-  data <- fromJSON(json_data, simplifyVector = FALSE)
+  # data <- fromJSON(json_data, simplifyVector = FALSE)
+  data <- fromJSON(json_data)
   
   print(state)
   print(json_url)
@@ -31,59 +38,56 @@ for (state in state_abbreviations) {
   
   county_data_unnest <- county_data %>%
     spread_all() %>% #converts json into rows/columns
-    select(name, fips, pctExpVote, totalVote, ts) %>% #select only columns we want/need
+    select(name, fips, totalExpVote, totalVote, timeStamp) %>% #select only columns we want/need
+    mutate(state = state) %>% 
     enter_object(candidates) %>% #go into column that's still nested
     gather_array %>% #adds array numbers & duplicates rows to correspond to OG rows
     spread_all() %>% #converts candidate vote numbers into rows/columns
-    select(name, fips, pctExpVote, totalVote, ts, vote, pct, id) %>% #select only columns we want/need
+    select(name, fips, state, totalExpVote, totalVote, timeStamp, fullName, vote) %>% #select only columns we want/need
     as_data_frame.tbl_json() #drops the json column at the end that we don't need anymore
   
-  remove(county_data) #remove nested county data
-  
-  candidate_data_unnest <- candidate_data %>%
-    spread_all() %>% #converts json into rows/columns
-    select(raceCandidateId, color, party, lastName, fullName, id) %>% #select only columns we want/need
-    as_data_frame.tbl_json() #drops the json column at the end that we don't need anymore
-  
-  remove(candidate_data) #remove nested candidate data
-  
-  county_candidate_data <- merge(county_data_unnest, candidate_data_unnest, by="id", all.x = TRUE) %>%
-    select(name, fips, pctExpVote, totalVote, ts, vote, pct, fullName)
-  
-  remove(county_data_unnest, candidate_data_unnest) #remove not merged data
-  
-  county_candidate_data_clean <- county_candidate_data %>%
-    pivot_wider(names_from = fullName, values_from = c(vote, pct)) %>%
+  county_candidate_data_clean <- county_data_unnest %>%
+    pivot_wider(names_from = fullName, values_from = c(vote)) %>%
     mutate(across(everything(), .fns = ~replace_na(.,0))) %>% 
-    mutate(state = state)
+    mutate(ts_datetime = as.POSIXct(timeStamp,format="%Y-%m-%dT%H:%M:%S", tz="GMT")) %>% #change datetime to datetime
+    mutate(fips = case_when(fips == "29095c" ~ "29095",
+                            fips == "29095s" ~ "29095",
+                            TRUE ~ fips))
   
-  #THIS IS FOR TESTING!!! GENERATE RANDOM NUMBERS FOR pctExpVote, vote_Harris, vote_Trump, pct_Harris, pct_Trump
-  county_candidate_data_clean$pctExpVote <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
-  county_candidate_data_clean$vote_Harris <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
-  county_candidate_data_clean$vote_Trump <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
-  county_candidate_data_clean$pct_Harris <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
-  county_candidate_data_clean$pct_Trump <- sample(100, size = nrow(county_candidate_data_clean), replace = TRUE)
+  county_candidate_data_clean_grouped <- county_candidate_data_clean %>% 
+    group_by(state, fips) %>% 
+    summarise(totalExpVote = sum(totalExpVote),
+              totalVote = sum(totalVote),
+              timeStamp = max(ts_datetime),
+              `vote_Harris` = sum(`Kamala Harris`),
+              `vote_Trump` = sum(`Donald Trump`))
+  
   
   #bind to all_counties
-  all_counties <- bind_rows(all_counties, county_candidate_data_clean)
+  all_counties <- bind_rows(all_counties, county_candidate_data_clean_grouped)
   
 }
 
-all_counties_clean_TEST <- all_counties %>% 
-  mutate(ts = case_when(state == "AL" ~ "2024-11-05T10:25:25Z", #manually change timestamp so we can test the case_when
-                        TRUE ~ ts)) %>% 
-  mutate(vote_Other = totalVote-(`vote_Harris`+`vote_Trump`),
-         pct_Other = 100-(`pct_Harris`+`pct_Trump`)) %>% #get "other" votes that aren't main candidates
-  select(fips, name, state, pctExpVote, totalVote, `vote_Harris`, `vote_Trump`, vote_Other, `pct_Harris`, `pct_Trump`, pct_Other, ts) %>%  #select only the columns we want
-  mutate(ts_datetime = as.POSIXct(ts,format="%Y-%m-%dT%H:%M:%SZ", tz="GMT")) %>% #change datetime to datetime
-  mutate(ts_pretty = format(as.POSIXct(ts_datetime), format = "%B %d, %Y %I:%M %p", tz="America/New_York")) %>% #format it pretty with ET tz
+all_counties_fix_padding <- all_counties %>% 
+  mutate(fips = str_pad(as.character(fips), 5, pad = "0")) #add leading 0s
+
+all_counties_names <- merge(all_counties_fix_padding, county_names_fips, by.x="fips", by.y="GEOID", all.x=TRUE) #merge
+
+
+all_counties_clean <- all_counties_names %>% 
+  mutate(vote_Other = totalVote-(`vote_Harris`+`vote_Trump`)) %>% 
+  mutate(pctExpVote = (totalVote/totalExpVote)*100) %>% 
+  mutate(`pct_Harris` = (`vote_Harris`/totalVote)*100) %>%
+  mutate(`pct_Trump` = (`vote_Trump`/totalVote)*100) %>%
+  mutate(ts_pretty = format(as.POSIXct(timeStamp), format = "%B %d, %Y %I:%M %p", tz="America/New_York")) %>% #format it pretty with ET tz
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
-  mutate(ts_pretty = paste0(ts_pretty, " ET")) %>% #add ET time zone at the end
-  mutate(ts_pretty = case_when(ts_pretty == "January 1, 001 12:03 AM ET" ~ "No voting data yet", #if timestamp still placeholder, change it to "no voting data yet"
+  mutate(ts_pretty = paste0("Updated: ",ts_pretty, " ET")) %>% #add ET time zone at the end
+  mutate(ts_pretty = case_when(state=="AL" ~ "Updated: November 5, 2024 9:25 PM ET",
+                               TRUE ~ ts_pretty)) %>% #FOR TESTING ONLY
+  mutate(ts_pretty = case_when(ts_pretty == "Updated: December 31, 000 7:03 PM ET" ~ "No voting data yet", #if timestamp still placeholder, change it to "no voting data yet"
                                TRUE ~ ts_pretty)) %>% 
-  mutate(fips = str_pad(as.character(fips), 5, pad = "0")) %>% #add leading 0s
-  mutate(fips = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
-                          TRUE ~ fips)) %>% 
+  mutate(fips_new = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
+                              TRUE ~ fips)) %>% 
   mutate(leader = case_when(`pct_Harris` > `pct_Trump` ~ "Harris",
                             `pct_Harris` < `pct_Trump` ~ "Trump",
                             TRUE ~ "NA")) %>% 
@@ -91,12 +95,26 @@ all_counties_clean_TEST <- all_counties %>%
                                        TRUE ~ "lessThan20pctIn")) %>% 
   mutate(leader_margin = `pct_Harris` - `pct_Trump`) %>% 
   mutate(leader_margin_safe = case_when(at_least_20pct_in == "20pctExpVoteIn" ~  leader_margin,
-                                   TRUE ~ NA)) %>% 
+                                        TRUE ~ NA)) %>% 
   mutate(leader_margin_abs = abs(leader_margin_safe))
-  
-write.csv(all_counties_clean_TEST, "output/TEST_TEST_all_counties_clean_2024_TEST_TEST.csv", row.names = FALSE)
 
-all_counties_clean_TEST_FIPSCOUNTIES <- all_counties_clean_TEST %>% 
-  group_by(fips, state) %>% 
-  summarise(count = n())
+all_counties_clean <- merge(all_counties_clean, ak_names, by="fips", all.x=TRUE) %>% 
+  mutate(NAME = case_when(state == "AK" ~ ak_district,
+                          TRUE ~ NAME)) %>% 
+  select(-fips) %>% 
+  rename(fips = fips_new)
+
+#THIS IS FOR TESTING!!! GENERATE RANDOM NUMBERS FOR pctExpVote, vote_Harris, vote_Trump, pct_Harris, pct_Trump
+all_counties_clean$pctExpVote <- sample(100, size = nrow(all_counties_clean), replace = TRUE)
+all_counties_clean$vote_Harris <- sample(100, size = nrow(all_counties_clean), replace = TRUE)
+all_counties_clean$vote_Trump <- sample(100, size = nrow(all_counties_clean), replace = TRUE)
+all_counties_clean$pct_Harris <- sample(100, size = nrow(all_counties_clean), replace = TRUE)
+all_counties_clean$pct_Trump <- sample(100, size = nrow(all_counties_clean), replace = TRUE)
+
+write.csv(all_counties_clean, "output/TEST_all_counties_clean_2024_TEST.csv", row.names = FALSE)
+
+
+
+
+
 

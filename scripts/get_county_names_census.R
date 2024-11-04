@@ -8,7 +8,7 @@ library(stringr)
 counties <- get_acs(
   geography = "county",
   variables = "B01001_001",
-  year = 2022
+  year = 2020
 ) %>% 
   select(GEOID, NAME)
 
