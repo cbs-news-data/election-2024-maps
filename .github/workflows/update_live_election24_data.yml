@@ -1,7 +1,8 @@
 on:
   schedule:
     #- cron: '*/5 * * * *' #every 5th minute
-    - cron: '1 1 1 1 *' #At 01:01 on day-of-month 1 in January
+    #- cron: '1 1 1 1 *' #At 01:01 on day-of-month 1 in January
+    - cron: '22 * * * *' #22 minutes past the hour
   workflow_dispatch:
 
 name: Update live election 2024 data
