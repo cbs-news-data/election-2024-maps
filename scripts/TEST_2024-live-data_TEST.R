@@ -38,12 +38,12 @@ for (state in state_abbreviations) {
   
   county_data_unnest <- county_data %>%
     spread_all() %>% #converts json into rows/columns
-    select(name, fips, totalExpVote, totalVote, timeStamp) %>% #select only columns we want/need
+    select(name, fips, pctExpVote, totalExpVote, totalVote, timeStamp) %>% #select only columns we want/need
     mutate(state = state) %>% 
     enter_object(candidates) %>% #go into column that's still nested
     gather_array %>% #adds array numbers & duplicates rows to correspond to OG rows
     spread_all() %>% #converts candidate vote numbers into rows/columns
-    select(name, fips, state, totalExpVote, totalVote, timeStamp, fullName, vote) %>% #select only columns we want/need
+    select(name, fips, state, pctExpVote, totalExpVote, totalVote, timeStamp, fullName, vote) %>% #select only columns we want/need
     as_data_frame.tbl_json() #drops the json column at the end that we don't need anymore
   
   county_candidate_data_clean <- county_data_unnest %>%
@@ -57,6 +57,7 @@ for (state in state_abbreviations) {
   county_candidate_data_clean_grouped <- county_candidate_data_clean %>% 
     group_by(state, fips) %>% 
     summarise(totalExpVote = sum(totalExpVote),
+              pctExpVote = sum(pctExpVote),
               totalVote = sum(totalVote),
               timeStamp = max(ts_datetime),
               `vote_Harris` = sum(`Kamala Harris`),
@@ -76,14 +77,16 @@ all_counties_names <- merge(all_counties_fix_padding, county_names_fips, by.x="f
 
 all_counties_clean <- all_counties_names %>% 
   mutate(vote_Other = totalVote-(`vote_Harris`+`vote_Trump`)) %>% 
-  mutate(pctExpVote = (totalVote/totalExpVote)*100) %>% 
+  mutate(pctExpVote_NEW = (totalVote/totalExpVote)*100) %>% 
+  mutate(pctExpVote_NEW = case_when(is.na(pctExpVote_NEW) == TRUE ~ 0,
+                                    TRUE ~ pctExpVote_NEW)) %>% 
+  mutate(pctExpVote = case_when((state == "CT" | state == "RI" | state == "MA" | state == "ME" | state == "NH" | state == "VT") ~ pctExpVote_NEW,
+                                TRUE ~ pctExpVote)) %>% 
   mutate(`pct_Harris` = (`vote_Harris`/totalVote)*100) %>%
   mutate(`pct_Trump` = (`vote_Trump`/totalVote)*100) %>%
   mutate(ts_pretty = format(as.POSIXct(timeStamp), format = "%B %d, %Y %I:%M %p", tz="America/New_York")) %>% #format it pretty with ET tz
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
   mutate(ts_pretty = paste0("Updated: ",ts_pretty, " ET")) %>% #add ET time zone at the end
-  mutate(ts_pretty = case_when(state=="AL" ~ "Updated: November 5, 2024 9:25 PM ET",
-                               TRUE ~ ts_pretty)) %>% #FOR TESTING ONLY
   mutate(ts_pretty = case_when(ts_pretty == "Updated: December 31, 000 7:03 PM ET" ~ "No voting data yet", #if timestamp still placeholder, change it to "no voting data yet"
                                TRUE ~ ts_pretty)) %>% 
   mutate(fips_new = case_when(state == "AK" ~ str_replace_all(fips, "029", "020"),
