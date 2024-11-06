@@ -73,12 +73,6 @@ all_counties_fix_padding <- all_counties %>%
 
 all_counties_names <- merge(all_counties_fix_padding, county_names_fips, by.x="fips", by.y="GEOID", all.x=TRUE) #merge
 
-#THIS IS FOR TESTING!!! GENERATE RANDOM NUMBERS FOR pctExpVote, vote_Harris, vote_Trump, pct_Harris, pct_Trump
-all_counties_names$totalExpVote <- sample(100, size = nrow(all_counties_names), replace = TRUE)
-all_counties_names$totalVote <- sample(100, size = nrow(all_counties_names), replace = TRUE)
-all_counties_names$vote_Harris <- sample(100, size = nrow(all_counties_names), replace = TRUE)
-all_counties_names$vote_Trump <- sample(100, size = nrow(all_counties_names), replace = TRUE)
-
 
 all_counties_clean <- all_counties_names %>% 
   mutate(vote_Other = totalVote-(`vote_Harris`+`vote_Trump`)) %>% 
