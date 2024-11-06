@@ -1,6 +1,6 @@
 on:
   schedule:
-    - cron: '*/15 * * * *' #every 3rd minute
+    - cron: '*/15 * * * *' #every 15th minute adjusted at 6a
     #- cron: '1 1 1 1 *' #At 01:01 on day-of-month 1 in January
     #- cron: '22 * * * *' #22 minutes past the hour
   workflow_dispatch:
