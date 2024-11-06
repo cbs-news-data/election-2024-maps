@@ -84,7 +84,7 @@ all_counties_clean <- all_counties_names %>%
                                 TRUE ~ pctExpVote)) %>% 
   mutate(`pct_Harris` = (`vote_Harris`/totalVote)*100) %>%
   mutate(`pct_Trump` = (`vote_Trump`/totalVote)*100) %>%
-  mutate(ts_pretty = format(as.POSIXct(timeStamp), format = "%B %d, %Y %I:%M %p", tz="America/New_York")) %>% #format it pretty with ET tz
+  mutate(ts_pretty = format(as.POSIXct(timeStamp), format = "%B %d, %Y %I:%M %p")) %>% #format it pretty
   mutate(ts_pretty = str_replace_all(as.character(ts_pretty), " 0", " ")) %>% #get rid of leading zeros
   mutate(ts_pretty = paste0("Updated: ",ts_pretty, " ET")) %>% #add ET time zone at the end
   mutate(ts_pretty = case_when(ts_pretty == "Updated: December 31, 000 7:03 PM ET" ~ "No voting data yet", #if timestamp still placeholder, change it to "no voting data yet"
